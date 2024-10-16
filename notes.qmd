@@ -5,7 +5,9 @@ format:
     self-contained: true
 ---
 
-1) is it using redcapAPI
+1) is it using "redcapAPI"
+  * does it use any deprecated functions of "redcapAPI"
+  * don't use "rccola"
 
 2) does it work and will it continue to work
   * failed assumptions and incomplete conditions/logic
@@ -67,6 +69,8 @@ dim(trial)
 
 If you use copy & paste, consider writing a function instead.
 
+* see [wikipedia - don't repeat yourself](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself)
+
 ## Case 1
 
 ```{r}
@@ -80,6 +84,7 @@ for(i in seq(nrow(df))) {
 
 * create variable prior to loop
 * unnecessary "for" loop
+  * see [SO - example](https://stackoverflow.com/questions/2908822/speed-up-the-loop-operation-in-r)
 * NA will produce NA - should it be FALSE?
 :::
 
@@ -252,6 +257,8 @@ df[,'grp'] <- dplyr::case_when(
   .default = NA
 )
 ```
+
+Package bloat is when you include too many R packages. Here's a "<a href="https://medium.com/@hello.shahanshah/problems-of-using-too-many-libraries-and-how-to-avoid-them-dccf9ac8e029">too many libraries</a>" reference.
 :::
 
 ::: {.callout-tip collapse="true" icon=false}
@@ -304,7 +311,7 @@ df[which(df[,'visit'] == 1),]
 ## What's wrong?
 
 * I call this the "superfluous which"
-* Unnecessary code can clutter
+* Unnecessary code can create clutter
 * It has a potentially beneficial side-effect
 :::
 
