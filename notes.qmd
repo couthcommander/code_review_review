@@ -1,0 +1,419 @@
+---
+title: "What I look for in a code review"
+format:
+  html:
+    self-contained: true
+---
+
+1) is it using redcapAPI
+
+2) does it work and will it continue to work
+  * failed assumptions and incomplete conditions/logic
+
+3) is it horrible (maintainability)
+  * is it hard to understand or read
+  * why is stuff commented out
+  * what can be simplified
+  * what can be sped up
+
+4) put it in a function
+
+## Data Generation
+
+```{r}
+set.seed(1212)
+users <- 4
+visits <- 3
+
+demo <- data.frame(user = seq(users), dob = as.Date(sample(365, users), origin = '1999-12-31'))
+
+df <- as.data.frame(expand.grid(visit = seq(visits), user = seq(users)))
+df[,'date'] <- as.Date(c(replicate(users, sort(sample(365, visits)))), origin = '2023-12-31')
+df[,'age'] <- floor(as.numeric(difftime(df[,'date'], demo[df[,'user'],'dob'], units = 'days')) / 365.25)
+df[,'lab'] <- runif(nrow(df))
+df[,'site'] <- sample(c(1,2,99), nrow(df), replace = TRUE)
+# df[,'valid'] <- sample(c(TRUE,FALSE), nrow(df), replace = TRUE)
+df[11:12,c('visit','date')] <- NA
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+Why is that line commented out?
+
+Add a comment explaining why the lines are commented out, or better yet, delete it (version control is your friend).
+:::
+
+## My Data
+
+```{r}
+df
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## Bonus Tip
+
+If you have *many* rows, start with a subset.
+
+```{r}
+nr <- nrow(df)
+ix <- sort(sample(seq(nr), nr * 0.1))
+trial <- df[ix,]
+dim(trial)
+```
+:::
+
+## Case 0
+
+If you use copy & paste, consider writing a function instead.
+
+## Case 1
+
+```{r}
+for(i in seq(nrow(df))) {
+  df[i,'valid'] <- df[i,'date'] < as.Date('2024-10-01')
+}
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* create variable prior to loop
+* unnecessary "for" loop
+* NA will produce NA - should it be FALSE?
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 1-1
+
+```{r}
+valid_date <- as.Date('2024-10-01')
+for(i in seq(nrow(df))) {
+  df[i,'valid'] <- df[i,'date'] < valid_date
+}
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 1-2
+
+```{r}
+# removing the "for" loop is better, plus add NA check
+df[,'valid'] <- !is.na(df[,'date']) & df[,'date'] < valid_date
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Bonus Tip
+
+```{r}
+# might want these at the beginning of a report
+today <- Sys.Date()
+now <- Sys.time()
+```
+:::
+
+## Case 2
+
+```{r}
+df[,'grp'] <- NA
+for(i in seq(nrow(df))) {
+  if(df[i,'valid'] & df[i,'site'] == 1 & df[i,'lab'] < 0.5) {
+    df[i,'grp'] <- 1
+  } else if(df[i,'valid'] & df[i,'site'] == 1 & df[i,'lab'] >= 0.5) {
+    df[i,'grp'] <- 2
+  } else if(df[i,'valid'] & df[i,'site'] == 2 & df[i,'lab'] < 0.5) {
+    df[i,'grp'] <- 3
+  } else if(df[i,'valid'] & df[i,'site'] == 2 & df[i,'lab'] >= 0.5) {
+    df[i,'grp'] <- 4
+  } else if(!df[i,'valid'] & df[i,'site'] == 1 & df[i,'lab'] < 0.5) {
+    df[i,'grp'] <- 5
+  } else if(!df[i,'valid'] & df[i,'site'] == 1 & df[i,'lab'] >= 0.5) {
+    df[i,'grp'] <- 6
+  } else if(!df[i,'valid'] & df[i,'site'] == 2 & df[i,'lab'] < 0.5) {
+    df[i,'grp'] <- 7
+  } else if(!df[i,'valid'] & df[i,'site'] == 2 & df[i,'lab'] >= 0.5) {
+    df[i,'grp'] <- 8
+  } else {
+    df[i,'grp'] <- 9
+  }
+}
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* there's a lot going on
+* are we capturing all scenarios correctly?
+* lots or repetition
+* what if we have to make a change/addition?
+* can we avoid the "for" loop?
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 2-1
+
+Not much improvement, but we can easily find the conditions.  
+You might pick better variable names than this.
+
+```{r}
+cond1 <- df[,'valid']
+cond2 <- df[,'site'] == 1
+cond3 <- df[,'site'] == 2
+cond4 <- df[,'lab'] < 0.5
+cond5 <- df[,'lab'] >= 0.5
+df[,'grp'] <- NA
+for(i in seq(nrow(df))) {
+  if(cond1[i] & cond2[i] & cond4[i]) {
+    df[i,'grp'] <- 1
+  } else if(cond1[i] & cond2[i] & cond5[i]) {
+    df[i,'grp'] <- 2
+  } else if(cond1[i] & cond3[i] & cond4[i]) {
+    df[i,'grp'] <- 3
+  } else if(cond1[i] & cond3[i] & cond5[i]) {
+    df[i,'grp'] <- 4
+  } else if(!cond1[i] & cond2[i] & cond4[i]) {
+    df[i,'grp'] <- 5
+  } else if(!cond1[i] & cond2[i] & cond5[i]) {
+    df[i,'grp'] <- 6
+  } else if(!cond1[i] & cond3[i] & cond4[i]) {
+    df[i,'grp'] <- 7
+  } else if(!cond1[i] & cond3[i] & cond5[i]) {
+    df[i,'grp'] <- 8
+  } else {
+    df[i,'grp'] <- 9
+  }
+}
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 2-2
+
+The dreaded nested-ifelse.  
+It can be difficult to write something readable.  
+We removed the "for" loop.
+
+```{r}
+df[,'grp'] <- ifelse(
+  df[,'valid'] & df[,'site'] == 1 & df[,'lab'] < 0.5, 1, ifelse(
+  df[,'valid'] & df[,'site'] == 1 & df[,'lab'] >= 0.5, 2, ifelse(
+  df[,'valid'] & df[,'site'] == 2 & df[,'lab'] < 0.5, 3, ifelse(
+  df[,'valid'] & df[,'site'] == 2 & df[,'lab'] >= 0.5, 4, ifelse(
+  !df[,'valid'] & df[,'site'] == 1 & df[,'lab'] < 0.5, 5, ifelse(
+  !df[,'valid'] & df[,'site'] == 1 & df[,'lab'] >= 0.5, 6, ifelse(
+  !df[,'valid'] & df[,'site'] == 2 & df[,'lab'] < 0.5, 7, ifelse(
+  !df[,'valid'] & df[,'site'] == 2 & df[,'lab'] >= 0.5, 8, 9
+))))))))
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 2-3
+
+This looks more manageable.  
+We are explicit about handling missing values.
+
+```{r}
+cond0 <- is.na(df[,'valid']) | is.na(df[,'site']) | df[,'site'] == 99 | is.na(df[,'lab'])
+cond1 <- df[,'valid']
+cond2 <- df[,'site'] == 1
+cond3 <- df[,'lab'] < 0.5
+grp <- rep(NA, nrow(df))
+grp[cond0] <- 9
+grp[!cond0 & cond1 & cond2 & cond3] <- 1
+grp[!cond0 & cond1 & cond2 & !cond3] <- 2
+grp[!cond0 & cond1 & !cond2 & cond3] <- 3
+grp[!cond0 & cond1 & !cond2 & !cond3] <- 4
+grp[!cond0 & !cond1 & cond2 & cond3] <- 5
+grp[!cond0 & !cond1 & cond2 & !cond3] <- 6
+grp[!cond0 & !cond1 & !cond2 & cond3] <- 7
+grp[!cond0 & !cond1 & !cond2 & !cond3] <- 8
+df[,'grp'] <- grp
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 2-4
+
+I typically avoid "dplyr" but `case_when` provides another clean and clear solution.
+
+```{r}
+df[,'grp'] <- dplyr::case_when(
+  is.na(df[,'valid']) | is.na(df[,'site']) | df[,'site'] == 99 | is.na(df[,'lab']) ~ 9,
+  cond1 & cond2 & cond3 ~ 1,
+  cond1 & cond2 & !cond3 ~ 2,
+  cond1 & !cond2 & cond3 ~ 3,
+  cond1 & !cond2 & !cond3 ~ 4,
+  !cond1 & cond2 & cond3 ~ 5,
+  !cond1 & cond2 & !cond3 ~ 6,
+  !cond1 & !cond2 & cond3 ~ 7,
+  !cond1 & !cond2 & !cond3 ~ 8,
+  .default = NA
+)
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Bonus Tip
+
+Check your before and after, including NAs
+
+```{r}
+table(df[,'grp'], useNA = 'always')
+```
+:::
+
+## Case 3
+
+```{r}
+head(df[,c(2,1,3,4,5,6)])
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* column/column order might change upstream
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 3-1
+
+Be explicit with column names
+
+```{r}
+coi <- c('user','visit','date','age','lab','site')
+head(df[,coi])
+```
+
+A bad column name generates an error.
+
+```{r}
+#| error: true
+head(df[,c('user','Site')])
+```
+:::
+
+## Case 4
+
+```{r}
+df[which(df[,'visit'] == 1),]
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* I call this the "superfluous which"
+* Unnecessary code can clutter
+* It has a potentially beneficial side-effect
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 4-1
+
+When the conditional evaluates to TRUE/FALSE, it will keep TRUEs.  
+It will also keep NAs.
+
+```{r}
+df[df[,'visit'] == 1,]
+```
+
+Add a check for missing (or use `which`) but note:
+
+* you should have a plan for missing
+* if you use `which` you may be unaware of missingness
+
+```{r}
+df[!is.na(df[,'visit']) & df[,'visit'] == 1,]
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Bonus Tip
+
+Also watch out for superfluous logic.
+
+```{r}
+df[df[,'valid'] == FALSE,]
+df[!df[,'valid'],]
+```
+:::
+
+## Case 5
+
+```{r}
+factor(df[,'site'], labels = c('VUMC','VA','other'))
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* "levels" is essentially set to `sort(unique(as.character(x)))` - is that what you want?
+* You should verify that the labels are correct
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 5-1
+
+Setting the "levels" explicitly is better.  
+It can still be challenging to verify that the level/label pairings are correct.
+
+```{r}
+factor(df[,'site'], levels = c(1,2,99), labels = c('VUMC','VA','other'))
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 5-2
+
+A named vector (or list) is easy to visually inspect and correct.
+
+```{r}
+site_labels <- c('1' = 'VUMC', '2' = 'VA', '99' = 'other')
+factor(df[,'site'], levels = names(site_labels), labels = site_labels)
+```
+:::
+
+## Case 6
+
+```{r}
+df[,'lab.factor'] <- NA
+df[df[,'lab'] < 0.25, 'lab.factor'] <- 'low'
+df[df[,'lab'] >= 0.25 & df[,'lab'] < 0.5, 'lab.factor'] <- 'normal'
+df[df[,'lab'] >= 0.5 & df[,'lab'] < 0.75, 'lab.factor'] <- 'elevated'
+df[df[,'lab'] >= 0.75, 'lab.factor'] <- 'high'
+table(df[,'lab.factor'])
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* This is a burden to write
+* You may want an ordered factor
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 6-1
+
+Use the `cut` function.  
+Decide if you should use the "right" and "ordered_result" arguments.
+
+```{r}
+df[,'lab.factor'] <- cut(df[,'lab'],
+                         c(0,0.25,0.5,0.75,1),
+                         c('low','normal','elevated','high'),
+                         right = FALSE,
+                         ordered_result = TRUE)
+table(df[,'lab.factor'])
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 6-2
+
+"Hmisc" has the `cut2` function.
+
+```{r}
+table(Hmisc::cut2(df[,'lab'], c(0.25,0.5,0.75)))
+```
+:::
