@@ -3658,8 +3658,8 @@ What’s wrong?
 <div id="callout-18" class="callout-18-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <ul>
-<li>“levels” is essentially set to <code>sort(unique(as.character(x)))</code> - is that what you want?</li>
-<li>You should verify that the labels are correct</li>
+<li>How do the labels map back to the raw values (levels)</li>
+<li>You should verify that the level/label mapping is correct</li>
 </ul>
 </div>
 </div>
@@ -3798,6 +3798,72 @@ Solution 6-2
               2               4               2               4 </code></pre>
 </div>
 </div>
+</div>
+</div>
+</div>
+</section>
+<section id="case-7" class="level2">
+<h2 class="anchored" data-anchor-id="case-7">Case 7</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>remove <span class="ot">&lt;-</span> <span class="fu">c</span>()</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>uid <span class="ot">&lt;-</span> <span class="fu">unique</span>(df[,<span class="st">&#39;user&#39;</span>])</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="fu">seq_along</span>(uid)) {</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>  df_i <span class="ot">&lt;-</span> df[df[,<span class="st">&#39;user&#39;</span>] <span class="sc">==</span> uid[i],]</span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>  first_invalid <span class="ot">&lt;-</span> <span class="fu">which</span>(<span class="sc">!</span>df_i[,<span class="st">&#39;valid&#39;</span>])[<span class="dv">1</span>]</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="sc">!</span><span class="fu">is.na</span>(first_invalid)) {</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>    bad <span class="ot">&lt;-</span> <span class="fu">rownames</span>(df_i)[<span class="fu">seq</span>(first_invalid, <span class="fu">nrow</span>(df_i))]</span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>    remove <span class="ot">&lt;-</span> <span class="fu">c</span>(remove, bad)</span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>df[<span class="sc">!</span><span class="fu">rownames</span>(df) <span class="sc">%in%</span> remove,]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   visit user       date age       lab site valid grp lab.factor
+1      1    1 2024-01-06  23 0.3314684   99  TRUE   9     normal
+2      2    1 2024-02-24  23 0.9101544    2  TRUE   4       high
+3      3    1 2024-09-05  24 0.4574245    2  TRUE   3     normal
+4      1    2 2024-05-16  24 0.9528818   99  TRUE   9       high
+5      2    2 2024-06-22  24 0.6851412    1  TRUE   2   elevated
+6      3    2 2024-07-26  24 0.6018680    2  TRUE   4   elevated
+7      1    3 2024-09-16  24 0.8361492    1  TRUE   2       high
+10     1    4 2024-03-21  23 0.3577640    1  TRUE   1     normal</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-24-contents" aria-controls="callout-24" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+What’s wrong?
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-24" class="callout-24-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<ul>
+<li>This is inefficient and won’t scale with large data sets.
+<ul>
+<li>avoid building a vector through concatenation</li>
+<li>avoid subsetting data in a “for” loop</li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip no-icon callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-25-contents" aria-controls="callout-25" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solution 7-1
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-25" class="callout-25-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Looks like a <code>split</code>/<code>lapply</code> solution.<br>
+Maybe “data.table”?</p>
 </div>
 </div>
 </div>

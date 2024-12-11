@@ -355,8 +355,8 @@ factor(df[,'site'], labels = c('VUMC','VA','other'))
 ::: {.callout-tip collapse="true" icon=false}
 ## What's wrong?
 
-* "levels" is essentially set to `sort(unique(as.character(x)))` - is that what you want?
-* You should verify that the labels are correct
+* How do the labels map back to the raw values (levels)
+* You should verify that the level/label mapping is correct
 :::
 
 ::: {.callout-tip collapse="true" icon=false}
@@ -422,5 +422,39 @@ table(df[,'lab.factor'])
 
 ```{r}
 table(Hmisc::cut2(df[,'lab'], c(0.25,0.5,0.75)))
+```
+:::
+
+## Case 7
+
+```{r}
+remove <- c()
+uid <- unique(df[,'user'])
+for(i in seq_along(uid)) {
+  df_i <- df[df[,'user'] == uid[i],]
+  first_invalid <- which(!df_i[,'valid'])[1]
+  if(!is.na(first_invalid)) {
+    bad <- rownames(df_i)[seq(first_invalid, nrow(df_i))]
+    remove <- c(remove, bad)
+  }
+}
+df[!rownames(df) %in% remove,]
+```
+
+::: {.callout-tip collapse="true" icon=false}
+## What's wrong?
+
+* This is inefficient and won't scale with large data sets.
+  * avoid building a vector through concatenation
+  * avoid subsetting data in a "for" loop
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 7-1
+
+Looks like a `split`/`lapply` solution.  
+Maybe "data.table"?
+
+```{r}
 ```
 :::
