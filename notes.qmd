@@ -5,6 +5,11 @@ format:
     self-contained: true
 ---
 
+```{r}
+#| echo: false
+library(Hmisc, warn.conflicts = FALSE, quietly = TRUE)
+```
+
 1) is it using "redcapAPI"
   * does it use any deprecated functions of "redcapAPI"
   * don't use "rccola"
@@ -432,11 +437,8 @@ remove <- c()
 uid <- unique(df[,'user'])
 for(i in seq_along(uid)) {
   df_i <- df[df[,'user'] == uid[i],]
-  first_invalid <- which(!df_i[,'valid'])[1]
-  if(!is.na(first_invalid)) {
-    bad <- rownames(df_i)[seq(first_invalid, nrow(df_i))]
-    remove <- c(remove, bad)
-  }
+  rm_rn <- rownames(df_i)[cumsum(!df_i[,'valid']) > 0]
+  remove <- c(remove, rm_rn)
 }
 df[!rownames(df) %in% remove,]
 ```
@@ -452,9 +454,49 @@ df[!rownames(df) %in% remove,]
 ::: {.callout-tip collapse="true" icon=false}
 ## Solution 7-1
 
-Looks like a `split`/`lapply` solution.  
-Maybe "data.table"?
+Use `split` and iterate over a list.  
+Convert back to data.frame with `do.call`.
 
 ```{r}
+# if data wasn't ordered by "user" it will be now
+datByUser <- split(df, df[,'user'])
+ldf <- vector('list', length(datByUser))
+for(i in seq_along(datByUser)) {
+  df_i <- datByUser[[i]]
+  ldf[[i]] <- df_i[cumsum(!df_i[,'valid']) == 0,]
+}
+do.call(rbind, ldf)
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 7-2
+
+Put it in a function and `lapply`.  
+This isn't faster but it is cleaner.
+
+```{r}
+cutInvalid <- function(x) {
+  x[cumsum(!x[,'valid']) == 0,]
+}
+ldf <- lapply(split(df, df[,'user']), cutInvalid)
+do.call(rbind, ldf)
+```
+:::
+
+::: {.callout-tip collapse="true" icon=false}
+## Solution 7-3
+
+Use row numbers and a keep/remove vector.  
+This method does not change row order like `split`.  
+It's also twice as fast with large or small data sets.
+
+```{r}
+rowsById <- tapply(seq(nrow(df)), df[,'user'], I)
+keep <- rep(TRUE, nrow(df))
+for(ix in rowsById) {
+  keep[ix[cumsum(!df[ix,'valid']) > 0]] <- FALSE
+}
+df[keep,]
 ```
 :::
